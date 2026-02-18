@@ -1,7 +1,26 @@
 import 'package:flutter/material.dart';
+import 'home_screen.dart';
 
-class LoginScreen extends StatelessWidget {
+// 1. Sayfayı StatefulWidget yaptık ki yazılan ismi hafızada tutabilelim
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  // 2. İsim ve Soyisim için kontrolcüleri tanımladık
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _surnameController = TextEditingController();
+
+  @override
+  void dispose() {
+    // 3. Hafıza sızıntısını önlemek için kontrolcüleri temizliyoruz
+    _nameController.dispose();
+    _surnameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,15 +72,35 @@ class LoginScreen extends StatelessWidget {
                     const Text('Hoş Geldiniz', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                     const Text('Başlamak için kendinizi tanıtalım', style: TextStyle(color: Colors.grey, fontSize: 14)),
                     const SizedBox(height: 25),
-                    _inputField("Adınız", "Adınızı girin"),
+                    
+                    // Adınız Girişi (Kontrolcü bağlandı)
+                    _inputField("Adınız", "Adınızı girin", _nameController),
                     const SizedBox(height: 16),
-                    _inputField("Soyadınız", "Soyadınızı girin"),
+                    
+                    // Soyadınız Girişi (Kontrolcü bağlandı)
+                    _inputField("Soyadınız", "Soyadınızı girin", _surnameController),
+                    
                     const SizedBox(height: 30),
                     SizedBox(
                       width: double.infinity,
                       height: 55,
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          // 4. "Başlayalım" butonuna basınca ismi alıp HomeScreen'e git
+                          if (_nameController.text.isNotEmpty) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => HomeScreen(userName: _nameController.text),
+                              ),
+                            );
+                          } else {
+                            // İsim boşsa uyarı verebilirsin
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Lütfen adınızı girin')),
+                            );
+                          }
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF7B61FF),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -82,13 +121,15 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
-  Widget _inputField(String label, String hint) {
+  // 5. InputField fonksiyonuna kontrolcü (controller) parametresi ekledik
+  Widget _inputField(String label, String hint, TextEditingController controller) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF374151))),
         const SizedBox(height: 8),
         TextField(
+          controller: controller, // Burası TextField ile kontrolcüyü bağlar
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
