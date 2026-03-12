@@ -1,23 +1,40 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart'; // Tasarımı yaptığımız dosyayı buraya tanıtıyoruz
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:mindcare_app/screens/login_screen.dart';
+import 'package:mindcare_app/screens/home_screen.dart';
+import 'package:mindcare_app/screens/activiteler_screen.dart';
+import 'package:mindcare_app/screens/testler_screen.dart';
+import 'package:mindcare_app/screens/gunluk_screen.dart';
 
-void main() {
-  runApp(const MoodifyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(const MindCareApp());
 }
 
-class MoodifyApp extends StatelessWidget {
-  const MoodifyApp({super.key});
+class MindCareApp extends StatelessWidget {
+  const MindCareApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false, // Sağ üstteki kırmızı bandı kaldırır
-      title: 'Moodify',
+      debugShowCheckedModeBanner: false,
+      title: 'MindCare',
       theme: ThemeData(
         useMaterial3: true,
-        primarySwatch: Colors.deepPurple,
+        colorSchemeSeed: const Color(0xFF52B788),
       ),
-      home: const LoginScreen(), // Uygulama açılınca LoginScreen gelsin
+      initialRoute: '/',
+      // Rotaları (Routes) parametre hatalarını gidermek için güncelledik
+      routes: {
+        '/': (context) => const LoginScreen(),
+        // HomeScreen artık userName beklediği için varsayılan bir isim ekledik
+        '/home': (context) => const HomeScreen(userName: "Rabia"),
+        '/aktiviteler': (context) => const AktivitelerScreen(),
+        '/testler': (context) => const TestlerScreen(),
+        '/gunluk': (context) => const GunlukScreen(),
+      },
     );
   }
 }
