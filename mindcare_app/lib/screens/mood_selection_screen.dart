@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'mood_detail_screen.dart'; // Bu dosyanın adının doğruluğundan emin ol
+import 'home_screen.dart'; // ← MoodDetailScreen yerine HomeScreen
 
 class MoodSelectionScreen extends StatefulWidget {
   final String userName;
@@ -13,89 +13,102 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen> {
   String? selectedMood;
   String? selectedEmoji;
 
-  final List<Map<String, String>> moods = [
-    {"emoji": "😢", "label": "Üzgün"},
-    {"emoji": "😔", "label": "Kötü"},
-    {"emoji": "😐", "label": "Normal"},
-    {"emoji": "🙂", "label": "İyi"},
-    {"emoji": "😊", "label": "Mutlu"},
-    {"emoji": "😁", "label": "Çok İyi"},
+  final List<Map<String, String>> moods = const [
+    {'emoji': '😢', 'label': 'Üzgün'},
+    {'emoji': '😔', 'label': 'Kötü'},
+    {'emoji': '😐', 'label': 'Normal'},
+    {'emoji': '🙂', 'label': 'İyi'},
+    {'emoji': '😊', 'label': 'Mutlu'},
+    {'emoji': '😁', 'label': 'Harika'},
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7FDFB),
-      body: Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 20,
+      backgroundColor: const Color(0xFFF0F7EE),
+      appBar: AppBar(
+        title: const Text(
+          'Ruh Halin',
+          style: TextStyle(color: Color(0xFF1B4332)),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF72B01D)),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Bugün Nasıl Hissediyorsunuz?",
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1B4332),
-                ),
+              child: const Column(
+                children: [
+                  Text(
+                    'Bugün Nasıl Hissediyorsun?',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1B4332),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Kendini en iyi ifade eden seçeneği seç',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              const Text(
-                "Ruh halinizi seçerek başlayalım",
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 25),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
                 ),
                 itemCount: moods.length,
                 itemBuilder: (context, index) {
-                  bool isSelected = selectedMood == moods[index]['label'];
+                  final mood = moods[index];
+                  final isSelected = selectedMood == mood['label'];
                   return GestureDetector(
                     onTap: () => setState(() {
-                      selectedMood = moods[index]['label'];
-                      selectedEmoji = moods[index]['emoji'];
+                      selectedMood = mood['label'];
+                      selectedEmoji = mood['emoji'];
                     }),
                     child: Container(
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? const Color(0xFF00C49A).withValues(alpha: 0.1)
+                            ? const Color(0xFF72B01D).withOpacity(0.1)
                             : Colors.white,
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isSelected
-                              ? const Color(0xFF00C49A)
-                              : const Color(0xFFE0F2F1),
+                              ? const Color(0xFF72B01D)
+                              : Colors.grey.shade200,
                           width: 2,
                         ),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          Text(mood['emoji']!,
+                              style: const TextStyle(fontSize: 40)),
+                          const SizedBox(height: 8),
                           Text(
-                            moods[index]['emoji']!,
-                            style: const TextStyle(fontSize: 30),
-                          ),
-                          Text(
-                            moods[index]['label']!,
-                            style: const TextStyle(fontSize: 12),
+                            mood['label']!,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? const Color(0xFF1B4332)
+                                  : Colors.grey,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
                           ),
                         ],
                       ),
@@ -103,39 +116,31 @@ class _MoodSelectionScreenState extends State<MoodSelectionScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 25),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00C49A),
-                  minimumSize: const Size(double.infinity, 55),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
                 onPressed: selectedMood == null
                     ? null
                     : () {
-                        Navigator.push(
+                        // DOĞRUDAN HOME SCREEN'E GİT (MoodDetailScreen ATLANDI)
+                        Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => MoodDetailScreen(
+                            builder: (context) => HomeScreen(
                               userName: widget.userName,
-                              emoji: selectedEmoji!,
-                              moodTitle: selectedMood!,
+                              userEmoji:
+                                  selectedEmoji!, // Seçilen emoji ana sayfada gösterilecek
                             ),
                           ),
                         );
                       },
-                child: const Text(
-                  "Devam Et",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: Text(
+                    selectedMood == null ? 'Seçim Yap' : 'Ana Sayfaya Git'),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
