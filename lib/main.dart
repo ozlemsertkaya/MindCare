@@ -10,12 +10,9 @@ final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('tr', null);
-  
-  try {
-    await dotenv.load(fileName: ".env");
-  } catch (e) {
-    debugPrint("Uyarı: .env dosyası bulunamadı. Ortam değişkenleri tanımlı olmayabilir.");
-  }
+
+  await dotenv.load(fileName: ".env");
+  debugPrint(".env başarıyla yüklendi");
 
   try {
     await Firebase.initializeApp(

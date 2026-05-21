@@ -10,7 +10,6 @@ class ActivitiesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Testlerdeki gibi soft renkler ve tasarım
     final activities = [
       {
         'title': '4-7-8 Nefesi',
@@ -69,7 +68,7 @@ class ActivitiesScreen extends StatelessWidget {
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0xFF10B981), // Testlerle aynı border rengi
+                color: const Color(0xFF10B981),
                 width: 1.2,
               ),
             ),
@@ -85,11 +84,10 @@ class ActivitiesScreen extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      // Testlerdeki gibi soft ikon container
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: color.withOpacity(0.1), // Soft arka plan
+                          color: color.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Icon(
@@ -182,8 +180,8 @@ class ActivitiesScreen extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                const DeepBodyScanScreen(totalDuration: 600),
+            // totalDuration parametresi buradan tamamen kaldırıldı
+            builder: (context) => const DeepBodyScanScreen(),
           ),
         );
         break;

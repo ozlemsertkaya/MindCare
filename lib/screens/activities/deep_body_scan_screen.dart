@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DeepBodyScanScreen extends StatefulWidget {
-  final int totalDuration;
-
-  const DeepBodyScanScreen({
-    super.key,
-    required this.totalDuration,
-  });
+  const DeepBodyScanScreen({super.key});
 
   @override
   State<DeepBodyScanScreen> createState() => _DeepBodyScanScreenState();
@@ -15,67 +12,95 @@ class DeepBodyScanScreen extends StatefulWidget {
 
 class _DeepBodyScanScreenState extends State<DeepBodyScanScreen> {
   int currentStep = 0;
-  bool isWaitingPause = false;
   bool _sessionStarted = false;
-  bool _isInTransition = false;
   bool _isPaused = false;
 
-  late Timer timer;
-  Timer? _transitionTimer;
+  Timer? timer;
   late int remainingSeconds;
-  late int stepDuration;
-  late int stepSecondsLeft;
-  final int pauseDuration = 2;
 
-  // Renk paleti (color_focus_game'den uyarlandı)
+  // Sesin tam süresi: 1:36 = 96 Saniye
+  final int totalAudioDuration = 96; 
+
+  final AudioPlayer player = AudioPlayer();
+
+  // Tasarımınıza uygun soft yeşil tonları listesi
   final List<Color> bodyColors = [
-    const Color(0xFFA8D5BA), // Açık yeşil
-    const Color(0xFFBFD8D2), // Gri-yeşil
-    const Color(0xFFD6EADF), // Çok açık yeşil
-    const Color(0xFFB5C9E2), // Açık mavi
-    const Color(0xFFC9D6EA), // Mavi-gri
-    const Color(0xFFEADBC8), // Krem
-    const Color(0xFFF3E9DC), // Açık kahve
-    const Color(0xFFDAD2BC), // Gri-kahve
-    const Color(0xFFD1C9B8), // Taupe
-    const Color(0xFFC8D7E0), // Buz mavi
-    const Color(0xFFD9E0D5), // Açık haki
-    const Color(0xFFE5D9D0), // Açık terracotta
-    const Color(0xFFF0E8DE), // Çok açık beyaz
+    const Color(0xFF10B981), // Canlı Meditasyon Yeşili
+    const Color(0xFF064E3B), // Derin Koyu Yeşil
+    const Color(0xFF34D399), // Soft Nane Yeşili
+    const Color(0xFF6EE7B7), // Açık Adaçayı Yeşili
+    const Color(0xFF059669), // Zümrüt Yeşili
+    const Color(0xFFA7F3D0), // Çok Soft Yeşil
   ];
 
-  final List<Map<String, String>> steps = [
-    {"title": "Ayak Parmakları", "desc": "Karıncalanma veya sıcaklığı fark et"},
-    {"title": "Ayak Tabanı", "desc": "Zemine temas hissini gözlemle"},
-    {"title": "Topuk", "desc": "Basıncı hisset"},
-    {"title": "Baldır", "desc": "Kaslarını gözlemle"},
-    {"title": "Diz", "desc": "İç hareketleri fark et"},
-    {"title": "Uyluk", "desc": "Yoğunluğu hisset"},
-    {"title": "Karın", "desc": "İç hareketleri fark et"},
-    {"title": "Göğüs", "desc": "Genişleme hissini gözlemle"},
-    {"title": "Omuz", "desc": "Gerginliği bırak"},
-    {"title": "Boyun", "desc": "Yumuşamayı hisset"},
-    {"title": "Çene", "desc": "Sıkılıysa gevşet"},
-    {"title": "Gözler", "desc": "Kasları serbest bırak"},
-    {"title": "Alın", "desc": "Tüm yüzü gevşet"},
+  // Sesin kronolojik akışına (kalan saniyeye) göre adımlar
+  final List<Map<String, dynamic>> steps = [
+    {
+      "title": "Giriş ve Nefes",
+      "desc": "Rahat bir pozisyona geçin ve nefesinize odaklanın.",
+      "emoji": "🧘",
+      "startSecond": 96,
+    },
+    {
+      "title": "Ayaklar ve Bacaklar",
+      "desc": "Ayak parmaklarınızı ve tabanlarınızı hissedin, ağırlığı bırakın.",
+      "emoji": "🦶",
+      "startSecond": 77,
+    },
+    {
+      "title": "Gövde ve Nefes",
+      "desc": "Nefes alırken karnınızın yükselişini ve düşüşünü izleyin.",
+      "emoji": "🫁",
+      "startSecond": 56,
+    },
+    {
+      "title": "Omuzlar ve Kollar",
+      "desc": "Omuzlarınızı serbest bırakın, kollarınız gevşesin.",
+      "emoji": "💪",
+      "startSecond": 42,
+    },
+    {
+      "title": "Yüz ve Baş Bölgesi",
+      "desc": "Çenenizi, göz çevrenizi ve alnınızı tamamen rahatlatın.",
+      "emoji": "😊",
+      "startSecond": 32,
+    },
+    {
+      "title": "Tüm Beden ve Kapanış",
+      "desc": "Tüm bedeninizi tek bir bütün olarak hissedin. Sakin ve güvende.",
+      "emoji": "✨",
+      "startSecond": 19,
+    },
   ];
 
   @override
   void initState() {
     super.initState();
-    remainingSeconds = widget.totalDuration;
-    _calculateStepDuration();
+    _resetSessionValues();
   }
 
-  void _calculateStepDuration() {
-    // Başlangıçta daha fazla süre, sonra azalarak ilerle
-    // Her adımın süresi biraz daha kısa olacak
-    stepDuration = ((widget.totalDuration / steps.length) - pauseDuration).floor();
-    if (stepDuration < 2) stepDuration = 2;
-    stepSecondsLeft = stepDuration;
+  void _resetSessionValues() {
+    remainingSeconds = totalAudioDuration;
+    currentStep = 0;
+    _isPaused = false;
+  }
+
+  Future<void> startMeditationAudio() async {
+    try {
+      await player.setReleaseMode(ReleaseMode.stop);
+      await player.play(UrlSource('assets/audio/voice_preview_vucut_taramasi.mp3'));
+    } catch (e) {
+      debugPrint("Audio error: $e");
+    }
+  }
+
+  Future<void> stopMeditationAudio() async {
+    await player.stop();
   }
 
   void startTimer() {
+    timer?.cancel();
+
     timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted || _isPaused) return;
 
@@ -87,126 +112,74 @@ class _DeepBodyScanScreenState extends State<DeepBodyScanScreen> {
 
       setState(() {
         remainingSeconds--;
-        stepSecondsLeft--;
+        _updateStepBasedOnTime(remainingSeconds);
       });
+    });
+  }
 
-      if (stepSecondsLeft <= 0) {
-        if (isWaitingPause) {
-          if (currentStep < steps.length - 1) {
-            setState(() {
-              _isInTransition = true;
-            });
-            timer.cancel();
-            _transitionTimer = Timer(const Duration(seconds: 2), () {
-              if (mounted) {
-                setState(() {
-                  _isInTransition = false;
-                  currentStep++;
-                  // Her adımda süre biraz azal
-                  int newDuration =
-                      ((widget.totalDuration - remainingSeconds) / (currentStep + 1))
-                          .floor();
-                  stepDuration = (newDuration - pauseDuration).clamp(2, 10);
-                  stepSecondsLeft = stepDuration;
-                  isWaitingPause = false;
-                });
-                startTimer();
-              }
-            });
-          } else {
-            t.cancel();
-            showFinishDialog();
-          }
-        } else {
-          if (currentStep < steps.length - 1) {
-            setState(() {
-              isWaitingPause = true;
-              stepSecondsLeft = pauseDuration;
-            });
-          } else {
-            t.cancel();
-            showFinishDialog();
-          }
-        }
+  void _updateStepBasedOnTime(int secondsLeft) {
+    for (int i = 0; i < steps.length; i++) {
+      if (i == steps.length - 1) {
+        currentStep = i;
+        break;
       }
+      if (secondsLeft <= steps[i]["startSecond"] && secondsLeft > steps[i + 1]["startSecond"]) {
+        currentStep = i;
+        break;
+      }
+    }
+  }
+
+  void restart() async {
+    timer?.cancel();
+    await stopMeditationAudio();
+    setState(() {
+      _sessionStarted = false;
+      _resetSessionValues();
     });
   }
 
   void showFinishDialog() {
-    if (!mounted) return;
-
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: Colors.white,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.spa_rounded,
-                size: 60,
-                color: Color(0xFF10B981),
-              ),
+              const Icon(Icons.spa_rounded, size: 65, color: Color(0xFF10B981)),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 "Seans Tamamlandı",
-                style: TextStyle(
-                  fontSize: 22,
+                style: GoogleFonts.nunito(
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF064E3B),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                "Kendini nasıl hissediyorsun?",
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey,
+                  color: const Color(0xFF064E3B),
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        restart();
-                      },
-                      child: const Text(
-                        "Tekrar Başla",
-                        style: TextStyle(
-                          color: Color(0xFF10B981),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    restart();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981), // Canlı Yeşil Ana Buton
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.pop(context);
-                      },
-                      child: const Text("Çık"),
-                    ),
+                  child: Text(
+                    "Tekrar Başla",
+                    style: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-                ],
+                ),
               ),
             ],
           ),
@@ -215,558 +188,256 @@ class _DeepBodyScanScreenState extends State<DeepBodyScanScreen> {
     );
   }
 
-  void restart() {
-    timer.cancel();
-    _transitionTimer?.cancel();
-    setState(() {
-      currentStep = 0;
-      isWaitingPause = false;
-      _sessionStarted = false;
-      _isPaused = false;
-      remainingSeconds = widget.totalDuration;
-      _calculateStepDuration();
-    });
+  String formatTime(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, "0")}';
   }
 
   @override
   void dispose() {
-    timer.cancel();
-    _transitionTimer?.cancel();
+    timer?.cancel();
+    player.stop();
+    player.dispose();
     super.dispose();
-  }
-
-  String formatTime(int seconds) {
-    final minutes = seconds ~/ 60;
-    final secs = seconds % 60;
-    return '$minutes:${secs.toString().padLeft(2, "0")}';
   }
 
   @override
   Widget build(BuildContext context) {
     final step = steps[currentStep];
-    final statusText = isWaitingPause ? 'Kısa mola' : 'Bu bölgeye odaklan';
-
-    String centerText;
-    if (!_sessionStarted) {
-      centerText = formatTime(widget.totalDuration);
-    } else if (_isInTransition) {
-      centerText = currentStep < steps.length - 1
-          ? 'Sonraki: ${steps[currentStep + 1]["title"]}'
-          : 'Bitiş';
-    } else {
-      centerText = formatTime(remainingSeconds);
-    }
-
-    Color currentColor = bodyColors[currentStep % bodyColors.length];
+    final currentColor = bodyColors[currentStep % bodyColors.length];
+    
+    int currentStepTotalSec = (currentStep == steps.length - 1) 
+        ? steps[currentStep]["startSecond"]
+        : (steps[currentStep]["startSecond"] - steps[currentStep + 1]["startSecond"]) as int;
+    int currentStepElapsed = steps[currentStep]["startSecond"] - remainingSeconds;
+    double phaseProgress = (currentStepElapsed / currentStepTotalSec).clamp(0.0, 1.0);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0FDF4),
       appBar: AppBar(
         backgroundColor: const Color(0xFF10B981),
-        title: const Text("Vücut Taraması - Anı Yaşama Pratiği"),
+        foregroundColor: Colors.white,
+        title: Text(
+          "Beden Tarama",
+          style: GoogleFonts.nunito(fontWeight: FontWeight.bold),
+        ),
         elevation: 0,
-        leading: _sessionStarted
-            ? IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () {
-                  timer.cancel();
-                  _transitionTimer?.cancel();
-                  Navigator.pop(context);
-                },
-              )
-            : null,
       ),
       body: !_sessionStarted
-          ? _buildTutorialScreen()
-          : Column(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final size = constraints.maxWidth * 0.7;
-
-                        return Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            SizedBox(
-                              width: size,
-                              height: size,
-                              child: CircularProgressIndicator(
-                                value: _isInTransition
-                                    ? null
-                                    : remainingSeconds / widget.totalDuration,
-                                strokeWidth: 12,
-                                color: currentColor,
-                                backgroundColor: currentColor.withOpacity(0.2),
-                              ),
-                            ),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  centerText,
-                                  style: const TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF064E3B),
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 12),
-                                if (_sessionStarted && !_isInTransition)
-                                  Text(
-                                    step["title"]!,
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w600,
-                                      color: currentColor.withOpacity(0.8),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
+          ? Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Center(
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      setState(() {
+                        _sessionStarted = true;
+                        _resetSessionValues();
+                      });
+                      await startMeditationAudio();
+                      startTimer();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981), // Giriş ekranı ana butonu
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 2,
+                    ),
+                    icon: const Icon(Icons.play_arrow_rounded, size: 28),
+                    label: Text(
+                      "Meditasyonu Başlat",
+                      style: GoogleFonts.nunito(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-                if (_sessionStarted && !_isInTransition) ...[
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          elevation: 4,
-                          shadowColor: Colors.black12,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(18),
-                              color: currentColor.withOpacity(0.1),
-                            ),
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  step["title"]!,
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: currentColor.withOpacity(0.9),
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                children: [
+                  const SizedBox(height: 30),
+                  Text(
+                    formatTime(remainingSeconds),
+                    style: GoogleFonts.nunito(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF064E3B),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    step["title"]!,
+                    style: GoogleFonts.nunito(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: currentColor,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  Expanded(
+                    child: Center(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final size = constraints.maxWidth * 0.75;
+
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              SizedBox(
+                                width: size,
+                                height: size,
+                                child: CircularProgressIndicator(
+                                  value: 1.0,
+                                  strokeWidth: 8,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    const Color(0xFF10B981).withOpacity(0.1),
                                   ),
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  step["desc"]!,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    height: 1.5,
-                                    color: Color(0xFF4B5563),
-                                  ),
+                              ),
+                              SizedBox(
+                                width: size,
+                                height: size,
+                                child: CircularProgressIndicator(
+                                  value: remainingSeconds / totalAudioDuration,
+                                  strokeWidth: 10,
+                                  strokeCap: StrokeCap.round,
+                                  valueColor: AlwaysStoppedAnimation<Color>(currentColor),
                                 ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                              ),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                width: size * (0.65 + phaseProgress * 0.15),
+                                height: size * (0.65 + phaseProgress * 0.15),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: currentColor.withOpacity(0.12),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Chip(
-                                      backgroundColor:
-                                          currentColor.withOpacity(0.2),
-                                      label: Text(
-                                        statusText,
-                                        style: TextStyle(
-                                          color: currentColor,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
+                                    Text(
+                                      step["emoji"]!,
+                                      style: const TextStyle(fontSize: 44),
                                     ),
-                                    Chip(
-                                      backgroundColor:
-                                          currentColor.withOpacity(0.2),
-                                      label: Text(
-                                        '${stepSecondsLeft}s',
-                                        style: TextStyle(
-                                          color: currentColor,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      formatTime(remainingSeconds),
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w800,
+                                        color: currentColor,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ],
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      step["desc"]!,
+                      style: GoogleFonts.nunito(
+                        fontSize: 15,
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // KONTROL BUTONLARI (Renk oyunundaki şema ile birebir eşitlendi)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              setState(() => _isPaused = !_isPaused);
+                              if (_isPaused) {
+                                timer?.cancel();
+                                await player.pause();
+                              } else {
+                                await player.resume();
+                                startTimer();
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _isPaused
+                                  ? const Color(0xFF10B981) // Duraklatıldığında dikkat çeken canlı yeşil
+                                  : const Color(0xFFD1FAE5), // Normal süreçte soft yeşil arka plan
+                              foregroundColor: _isPaused
+                                  ? Colors.white
+                                  : const Color(0xFF047857),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
+                            label: Text(
+                              _isPaused ? "Devam Et" : "Duraklat",
+                              style: GoogleFonts.nunito(fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${currentStep + 1} / ${steps.length}',
-                              style: const TextStyle(
-                                color: Color(0xFF6B7280),
-                                fontWeight: FontWeight.w600,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              timer?.cancel();
+                              await stopMeditationAudio();
+                              Navigator.pop(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF047857), // Net bitiriş için koyu yeşil tonu
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            Text(
-                              isWaitingPause
-                                  ? 'Mola devam ediyor'
-                                  : 'Tarama devam ediyor',
-                              style: const TextStyle(
-                                color: Color(0xFF6B7280),
-                                fontWeight: FontWeight.w600,
-                              ),
+                            icon: const Icon(Icons.close),
+                            label: Text(
+                              "Seansı Bitir",
+                              style: GoogleFonts.nunito(fontWeight: FontWeight.bold),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: LinearProgressIndicator(
-                            value: (currentStep +
-                                    (isWaitingPause ? 0.5 : 0)) /
-                                steps.length,
-                            backgroundColor: Colors.white,
-                            color: currentColor,
-                            minHeight: 8,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ],
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                  child: Row(
-                    children: [
-                      // Duraklat/Devam Et butonu - Secondary renk (açık yeşil)
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _isPaused
-                                ? const Color(0xFF10B981) // Devam et - primary
-                                : const Color(0xFFD1FAE5), // Duraklat - secondary
-                            foregroundColor: _isPaused
-                                ? Colors.white
-                                : const Color(0xFF047857), // secondary-foreground
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _isPaused = !_isPaused;
-                              if (!_isPaused) {
-                                startTimer();
-                              } else {
-                                timer.cancel();
-                                _transitionTimer?.cancel();
-                              }
-                            });
-                          },
-                          icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
-                          label: Text(_isPaused ? 'Devam Et' : 'Duraklat'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Çık butonu - Koyu yeşil (secondary-foreground)
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF047857), // secondary-foreground - koyu yeşil
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          onPressed: () {
-                            timer.cancel();
-                            _transitionTimer?.cancel();
-                            showDialog(
-                              context: context,
-                              builder: (_) => Dialog(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                backgroundColor: Colors.white,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.pause_circle_filled,
-                                        size: 60,
-                                        color: Color(0xFF10B981),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      const Text(
-                                        "Seans Durduruldu",
-                                        style: TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF064E3B),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      const Text(
-                                        "Devam etmek istiyor musunuz?",
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 24),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          Expanded(
-                                            child: TextButton(
-                                              onPressed: () {
-                                                Navigator.pop(context);
-                                                setState(() {
-                                                  _isPaused = false;
-                                                });
-                                                startTimer();
-                                              },
-                                              child: const Text(
-                                                "Devam Et",
-                                                style: TextStyle(
-                                                  color: Color(0xFF10B981),
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color(0xFF047857), // koyu yeşil
-                                                foregroundColor: Colors.white,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                              ),
-                                              onPressed: () {
-                                                Navigator.pop(context);
-                                                Navigator.pop(context);
-                                              },
-                                              child: const Text("Çık"),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.stop),
-                          label: const Text('Çık'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildTutorialScreen() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 20),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFF10B981).withOpacity(0.3),
-                width: 2,
               ),
             ),
-            child: const Column(
-              children: [
-                Icon(
-                  Icons.self_improvement,
-                  size: 64,
-                  color: Color(0xFF10B981),
-                ),
-                SizedBox(height: 16),
-                Text(
-                  "Anı Yaşama Pratiği",
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF064E3B),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          const Text(
-            "Nasıl Çalışır?",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF064E3B),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildTutorialStep(
-            1,
-            "Rahatlayın",
-            "Sakin bir ortama geç ve rahat bir pozisyonda otur veya yat.",
-          ),
-          _buildTutorialStep(
-            2,
-            "Odaklanın",
-            "Her body bölgesine sırasıyla odaklan ve o bölgedeki hissi gözlemle.",
-          ),
-          _buildTutorialStep(
-            3,
-            "Farkındalık Geliştir",
-            "Vücudunun her bölgesine bilinç dolu bir şekilde dikkat ver.",
-          ),
-          _buildTutorialStep(
-            4,
-            "Tamamla",
-            "10 dakika boyunca vücudunun tamamının taramasını tamamla.",
-          ),
-          const SizedBox(height: 32),
-          const Text(
-            "Faydaları",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF064E3B),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildBenefitItem("✓ Stressi azaltır"),
-          _buildBenefitItem("✓ Vücut farkındalığını arttırır"),
-          _buildBenefitItem("✓ Uykunuzu iyileştirir"),
-          
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              onPressed: () {
-                setState(() {
-                  _sessionStarted = true;
-                });
-                startTimer();
-              },
-              icon: const Icon(Icons.play_arrow_rounded, size: 28),
-              label: const Text(
-                "Başla",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTutorialStep(int number, String title, String description) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF10B981),
-            ),
-            child: Center(
-              child: Text(
-                number.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF064E3B),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF6B7280),
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBenefitItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 14,
-          color: Color(0xFF4B5563),
-          fontWeight: FontWeight.w500,
-        ),
-      ),
     );
   }
 }
